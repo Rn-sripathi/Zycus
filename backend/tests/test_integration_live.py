@@ -12,6 +12,7 @@ caught, attributed to the right rule, with the right severity and confidence tie
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 
 import pytest
@@ -126,6 +127,28 @@ class TestRedlines:
             if finding.proposed_redline:
                 lowered = finding.proposed_redline.lower()
                 assert not any(h in lowered for h in hedges)
+
+    def test_clause_with_two_breaches_gets_one_replacement_fixing_both(self, review):
+        """Regression: per-rule drafting produced texts that each undid the other's fix.
+
+        Clause 1 breaches two rules and each redline replaced the whole clause, so the
+        two drafts could not both be applied, and each silently kept the other
+        violation in place.
+        """
+        clause_one = [
+            f
+            for f in review.findings
+            if f.clause_number == 1 and f.verdict is Verdict.DEVIATION
+        ]
+        assert len(clause_one) == 2
+
+        texts = {f.proposed_redline for f in clause_one}
+        assert len(texts) == 1, "clause 1 produced conflicting replacements"
+
+        redline = texts.pop().lower()
+        assert not re.search(r"\b7 days|seven \(7\) days", redline), "7-day notice survived"
+        assert not re.search(r"\b10 days|ten \(10\) days", redline), "10-day notice survived"
+        assert "30" in redline or "thirty" in redline
 
     def test_numeric_redlines_state_the_required_threshold(self, review):
         for rule_id, threshold in [

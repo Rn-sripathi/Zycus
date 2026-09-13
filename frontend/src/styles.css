@@ -392,6 +392,15 @@ body {
   font-weight: 550;
 }
 
+.redline__combined {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #e8effb;
+  color: #17458f;
+  font-size: 12.5px;
+}
+
 .redline__columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

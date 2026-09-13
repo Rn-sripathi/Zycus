@@ -1,11 +1,17 @@
 // Shows the vendor's language beside the proposed replacement, so a reviewer can
 // judge the edit without hunting through the original document.
 
-export default function RedlineDiff({ original, proposed, changeSummary }) {
+export default function RedlineDiff({ original, proposed, changeSummary, addresses }) {
   if (!proposed) return null
 
   return (
     <div className="redline">
+      {addresses?.length > 1 && (
+        <p className="redline__combined">
+          One replacement, fixing all {addresses.length} issues in this clause:{' '}
+          {addresses.join(', ')}. Applying a separate edit per issue would undo the others.
+        </p>
+      )}
       {changeSummary && <p className="redline__summary">{changeSummary}</p>}
       <div className="redline__columns">
         <div className="redline__column">

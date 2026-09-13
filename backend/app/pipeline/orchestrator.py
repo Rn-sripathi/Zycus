@@ -36,6 +36,7 @@ from app.pipeline import compliance, redliner, rule_matcher
 from app.pipeline.hitl import classify
 from app.pipeline.numeric_gate import evaluate_numeric_rule
 from app.pipeline.segmenter import segment_clauses
+from app.pipeline.vagueness import detect_hedges
 
 logger = logging.getLogger(__name__)
 
@@ -82,45 +83,47 @@ async def review_contract(contract_text: str, client: LLMClient) -> ReviewResult
             pair.assessment = assessment
 
     # Step 6 -- classify first, so drafting only runs for real deviations.
+    # Vagueness is checked in Python: the model reports high confidence on clauses
+    # that state nothing, so its self-assessment cannot be the only brake.
     decisions = [
         classify(
             pair.rule,
             numeric=pair.numeric,
             assessment=pair.assessment,
+            hedges=(
+                detect_hedges(pair.clause.full_text, pair.assessment.evidence_quote)
+                if pair.assessment is not None
+                else []
+            ),
             confidence_threshold=settings.confidence_threshold,
         )
         for pair in pairs
     ]
 
-    # Step 5 -- draft replacement language, concurrently.
-    deviating = [
-        (pair, decision)
-        for pair, decision in zip(pairs, decisions, strict=True)
-        if decision.verdict is Verdict.DEVIATION
-    ]
-    redlines: list[tuple[str, str]] = []
-    if deviating:
-        redlines = list(
-            await asyncio.gather(
-                *(
-                    redliner.draft_redline(
-                        pair.clause,
-                        pair.rule,
-                        _describe_problem(pair),
-                        client,
-                    )
-                    for pair, _ in deviating
+    # Step 5 -- draft replacement language, one call per CLAUSE rather than per rule.
+    # A clause breaching two rules needs a single replacement that fixes both; drafting
+    # them separately yields two texts that each undo the other's fix.
+    deviating_by_clause: dict[int, list[_Pair]] = {}
+    for pair, decision in zip(pairs, decisions, strict=True):
+        if decision.verdict is Verdict.DEVIATION:
+            deviating_by_clause.setdefault(pair.clause.number, []).append(pair)
+
+    drafts: dict[int, tuple[str, str]] = {}
+    if deviating_by_clause:
+        clause_numbers = list(deviating_by_clause)
+        redlines = await asyncio.gather(
+            *(
+                redliner.draft_redline(
+                    deviating_by_clause[number][0].clause,
+                    [(p.rule, _describe_problem(p)) for p in deviating_by_clause[number]],
+                    client,
                 )
+                for number in clause_numbers
             )
         )
+        drafts = dict(zip(clause_numbers, redlines, strict=True))
 
-    # Keyed by (clause, rule), which is unique: the matcher de-duplicates rules per clause.
-    drafts = {
-        (pair.clause.number, pair.rule.id): redline
-        for (pair, _), redline in zip(deviating, redlines, strict=True)
-    }
-
-    findings = _build_findings(clauses, pairs, decisions, matches, drafts)
+    findings = _build_findings(clauses, pairs, decisions, deviating_by_clause, drafts)
     summary = _summarise(clauses, findings, time.perf_counter() - started)
     return ReviewResult(findings=findings, summary=summary)
 
@@ -144,7 +147,7 @@ def _build_findings(
     clauses: list[Clause],
     pairs: list[_Pair],
     decisions: list,
-    matches: dict[int, list[Rule]],
+    deviating_by_clause: dict[int, list[_Pair]],
     drafts: dict[int, tuple[str, str]],
 ) -> list[Finding]:
     findings: list[Finding] = []
@@ -174,8 +177,13 @@ def _build_findings(
             )
             continue
 
+        # One consolidated replacement per clause, shared by that clause's findings.
+        clause_deviations = deviating_by_clause.get(clause.number, [])
+        addressed = [p.rule.title for p in clause_deviations]
+
         for pair, decision in entries:
-            redline, change_summary = drafts.get((clause.number, pair.rule.id), ("", ""))
+            is_deviation = decision.verdict is Verdict.DEVIATION
+            redline, change_summary = drafts.get(clause.number, ("", "")) if is_deviation else ("", "")
             findings.append(
                 Finding(
                     clause_number=clause.number,
@@ -193,6 +201,7 @@ def _build_findings(
                     explanation=_explanation(pair),
                     proposed_redline=redline,
                     change_summary=change_summary,
+                    redline_addresses=addressed if is_deviation and len(addressed) > 1 else [],
                     numeric=pair.numeric,
                     review_reasons=list(decision.review_reasons),
                 )

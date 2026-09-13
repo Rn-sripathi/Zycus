@@ -129,15 +129,18 @@ def build_compliance_prompt(rule_block: str, clause_block: str) -> str:
 REDLINE_SYSTEM = """\
 You are a contract attorney drafting redlines for Zycus, the customer in this agreement.
 
-Rewrite the clause you are given so that it complies with the playbook rule, and return \
-the replacement text only.
+Rewrite the clause you are given so that it complies with the playbook rules listed, and \
+return the replacement text only.
 
 Requirements:
 - Produce actual clause language that could be pasted into the contract. Never write \
 commentary such as "consider revising" or "this should be negotiated".
-- Change what the rule requires and leave the rest of the clause intact. Keep the original \
+- A clause may breach SEVERAL rules at once. Your replacement must fix EVERY issue listed, \
+in one piece of text. Fixing one and leaving another unchanged is a serious error: the \
+reviewer pastes your text into the contract, so anything you leave unfixed ships.
+- Change what the rules require and leave the rest of the clause intact. Keep the original \
 numbering, defined terms and drafting style.
-- Where the rule sets a threshold, state the number explicitly in the replacement text.
+- Where a rule sets a threshold, state the number explicitly in the replacement text.
 - Keep it proportionate: this is a redline, not a rewrite of the whole agreement.\
 """
 
@@ -158,10 +161,17 @@ REDLINE_SCHEMA: dict[str, Any] = {
 }
 
 
-def build_redline_prompt(rule_block: str, clause_block: str, problem: str) -> str:
-    return (
-        f"PLAYBOOK RULE:\n{rule_block}\n\n"
-        f"CLAUSE AS PROPOSED BY THE VENDOR:\n{clause_block}\n\n"
-        f"WHY IT FAILS THE RULE:\n{problem}\n\n"
+def build_redline_prompt(issues_block: str, clause_block: str, issue_count: int) -> str:
+    instruction = (
         "Draft the replacement clause."
+        if issue_count == 1
+        else (
+            f"This clause breaches {issue_count} rules. Draft ONE replacement clause that "
+            "fixes all of them together."
+        )
+    )
+    return (
+        f"ISSUES TO FIX IN THIS CLAUSE:\n{issues_block}\n\n"
+        f"CLAUSE AS PROPOSED BY THE VENDOR:\n{clause_block}\n\n"
+        f"{instruction}"
     )

@@ -143,6 +143,9 @@ class Finding:
     explanation: str = ""
     proposed_redline: str = ""
     change_summary: str = ""
+    # Titles of every rule this replacement text fixes. More than one when the clause
+    # breached several rules and a single consolidated redline addresses them together.
+    redline_addresses: list[str] = field(default_factory=list)
     numeric: NumericEvidence | None = None
     review_reasons: list[str] = field(default_factory=list)
 

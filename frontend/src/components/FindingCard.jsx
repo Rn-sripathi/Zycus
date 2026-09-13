@@ -16,6 +16,7 @@ export default function FindingCard({ finding }) {
     explanation,
     proposed_redline,
     change_summary,
+    redline_addresses,
     original_text,
     review_reasons,
     numeric,
@@ -69,6 +70,7 @@ export default function FindingCard({ finding }) {
         original={original_text}
         proposed={proposed_redline}
         changeSummary={change_summary}
+        addresses={redline_addresses}
       />
     </article>
   )

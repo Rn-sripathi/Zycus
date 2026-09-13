@@ -50,14 +50,20 @@ def classify(
     *,
     numeric: NumericEvidence | None = None,
     assessment: LLMAssessment | None = None,
+    hedges: list[str] | None = None,
     confidence_threshold: float = 0.8,
 ) -> Decision:
-    """Turn evidence into a verdict, a confidence tier and a routing decision."""
+    """Turn evidence into a verdict, a confidence tier and a routing decision.
+
+    ``hedges`` carries deterministic vagueness signals about the clause. They pull
+    confidence down but never override arithmetic: a number stated in a clause is a
+    number regardless of how woolly the prose around it is.
+    """
     if numeric is not None and numeric.result is not GateResult.NOT_EXTRACTABLE:
         return _from_arithmetic(rule, numeric)
 
     if assessment is not None:
-        return _from_model(rule, assessment, confidence_threshold)
+        return _from_model(rule, assessment, confidence_threshold, hedges or [])
 
     # No evidence of either kind: never treat silence as approval.
     return Decision(
@@ -87,8 +93,17 @@ def _from_arithmetic(rule: Rule, numeric: NumericEvidence) -> Decision:
     )
 
 
-def _from_model(rule: Rule, assessment: LLMAssessment, threshold: float) -> Decision:
-    """No number to check, so the verdict rests on the model's reading."""
+def _from_model(
+    rule: Rule,
+    assessment: LLMAssessment,
+    threshold: float,
+    hedges: list[str],
+) -> Decision:
+    """No number to check, so the verdict rests on the model's reading.
+
+    Two deterministic guards sit over that reading, because self-reported confidence
+    is not a reliable signal on its own.
+    """
     reasons: list[str] = []
     confident = assessment.confidence >= threshold
 
@@ -101,13 +116,21 @@ def _from_model(rule: Rule, assessment: LLMAssessment, threshold: float) -> Deci
             "the clause."
         )
 
+    # The clause defers its substance elsewhere, so no verdict can be read off the
+    # text. The model routinely reports high confidence on exactly these clauses.
+    if hedges:
+        reasons.append(
+            f"The clause relies on {_join(hedges)} rather than stating a position, so "
+            "its wording cannot settle the question either way."
+        )
+
     if not confident:
         reasons.append(
             f"Model confidence {assessment.confidence:.0%} is below the "
             f"{threshold:.0%} auto-suggest threshold."
         )
 
-    trustworthy = confident and not unsupported
+    trustworthy = confident and not unsupported and not hedges
     tier = Tier.MEDIUM if trustworthy else Tier.LOW
 
     if assessment.violation:
@@ -135,3 +158,9 @@ def _from_model(rule: Rule, assessment: LLMAssessment, threshold: float) -> Deci
         needs_review=not trustworthy,
         review_reasons=reasons if not trustworthy else [],
     )
+
+
+def _join(items: list[str]) -> str:
+    if len(items) == 1:
+        return items[0]
+    return f"{', '.join(items[:-1])} and {items[-1]}"

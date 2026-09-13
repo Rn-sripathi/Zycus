@@ -138,9 +138,37 @@ class TestRedlineRouting:
             if finding.verdict is not Verdict.DEVIATION:
                 assert finding.proposed_redline == ""
 
-    def test_redline_is_only_drafted_once_per_deviation(self, client, result):
-        deviations = sum(1 for f in result.findings if f.verdict is Verdict.DEVIATION)
-        assert client.calls.count("redline_draft") == deviations
+    def test_one_redline_call_per_clause_not_per_rule(self, client, result):
+        # Six clauses deviate; clause 1 breaches two rules but must still be drafted once.
+        deviating_clauses = {
+            f.clause_number for f in result.findings if f.verdict is Verdict.DEVIATION
+        }
+        assert client.calls.count("redline_draft") == len(deviating_clauses)
+        assert len(deviating_clauses) == 6
+
+    def test_findings_on_the_same_clause_share_one_replacement(self, result):
+        """Regression: separately drafted redlines each undid the other's fix.
+
+        Clause 1 breaches the termination-notice and auto-renewal-notice rules. Because
+        each redline replaces the whole clause, two independent drafts cannot both be
+        applied -- and each silently preserved the other violation.
+        """
+        clause_one = [
+            f
+            for f in result.findings
+            if f.clause_number == 1 and f.verdict is Verdict.DEVIATION
+        ]
+        assert len(clause_one) == 2
+
+        texts = {f.proposed_redline for f in clause_one}
+        assert len(texts) == 1, "clause 1 produced conflicting replacement texts"
+
+        for finding in clause_one:
+            assert len(finding.redline_addresses) == 2
+
+    def test_single_issue_clauses_are_not_labelled_as_combined(self, result):
+        single = next(f for f in result.findings if f.rule_id == "payment_terms")
+        assert single.redline_addresses == []
 
 
 class TestSummaryAndOrdering:

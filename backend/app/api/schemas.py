@@ -51,6 +51,7 @@ class FindingOut(BaseModel):
     explanation: str
     proposed_redline: str
     change_summary: str
+    redline_addresses: list[str]
     review_reasons: list[str]
     numeric: NumericEvidenceOut | None = None
 
@@ -72,6 +73,7 @@ class FindingOut(BaseModel):
             explanation=finding.explanation,
             proposed_redline=finding.proposed_redline,
             change_summary=finding.change_summary,
+            redline_addresses=finding.redline_addresses,
             review_reasons=finding.review_reasons,
             numeric=(
                 NumericEvidenceOut.from_domain(finding.numeric) if finding.numeric else None
