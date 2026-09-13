@@ -136,10 +136,33 @@ class Finding:
     tier: Tier | None = None
     severity: Severity | None = None
     auto_suggest: bool = False
+    needs_review: bool = False
     source: EvidenceSource | None = None
 
     evidence_quote: str = ""
     explanation: str = ""
     proposed_redline: str = ""
+    change_summary: str = ""
     numeric: NumericEvidence | None = None
     review_reasons: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ReviewSummary:
+    """Headline counts for the reviewer, so the top of the page answers
+    'what do I actually need to look at?' before any scrolling."""
+
+    clauses_reviewed: int = 0
+    deviations: int = 0
+    serious: int = 0
+    minor: int = 0
+    auto_suggested: int = 0
+    needs_review: int = 0
+    clauses_without_applicable_rule: int = 0
+    elapsed_seconds: float = 0.0
+
+
+@dataclass
+class ReviewResult:
+    findings: list[Finding]
+    summary: ReviewSummary
