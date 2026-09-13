@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: zycus-redline-agent
+    runtime: python
+    region: oregon
+    plan: free
+    # The React bundle is built into backend/app/static, so one service serves
+    # both the API and the UI from a single origin.
+    buildCommand: |
+      cd frontend && npm ci && npm run build
+      cd ../backend && pip install -r requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false # set in the Render dashboard, never committed
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: NODE_VERSION
+        value: "20.18.0"
+    healthCheckPath: /api/health
