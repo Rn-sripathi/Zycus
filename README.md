@@ -7,8 +7,10 @@ from findings a human should judge.
 Built for the Zycus Product Intern (AI PM track) take-home, Track B.
 
 - **Live app:** _add your deployed URL here_
-- **Slide deck:** [`docs/deck.html`](docs/deck.html) (open in a browser) —
-  also published at https://claude.ai/code/artifact/c8ecd3f4-7e8e-4c6a-b09e-a1e8849e58e5
+- **Slide deck:** [`docs/Zycus_Redlining_Agent_Deck.pptx`](docs/Zycus_Redlining_Agent_Deck.pptx)
+  (6 slides) — also as [`docs/deck.html`](docs/deck.html) and published at
+  https://claude.ai/code/artifact/c8ecd3f4-7e8e-4c6a-b09e-a1e8849e58e5
+- **Written version:** [`docs/Zycus_Redlining_Agent_Writeup.docx`](docs/Zycus_Redlining_Agent_Writeup.docx)
 - **Stack:** FastAPI + React (Vite) + OpenAI structured outputs
 
 ---
