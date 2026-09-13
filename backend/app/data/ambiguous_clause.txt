@@ -1,0 +1,13 @@
+VENDOR SERVICES AGREEMENT (AMBIGUOUS DRAFT)
+
+This Agreement is entered into between Northwind Vendor Solutions Pvt. Ltd. ("Vendor") and Zycus Inc. ("Customer").
+
+1. Term and Termination. Either party may terminate this Agreement for convenience upon reasonable prior written notice, such notice period to be determined in accordance with the parties' customary course of dealing.
+
+2. Data Rights. Data and materials processed under this Agreement shall be handled in a manner consistent with each party's respective interests, and either party may make use of such materials for purposes reasonably related to the services contemplated herein.
+
+3. Limitation of Liability. Each party's aggregate liability arising out of this Agreement shall be limited to a commercially reasonable amount, determined by reference to the nature and circumstances of the claim.
+
+4. Indemnification. The parties shall each bear responsibility for claims to the extent consistent with customary industry allocation of risk.
+
+5. Governing Law. This Agreement shall be governed by the laws of such jurisdiction as the parties may mutually determine to be appropriate.
