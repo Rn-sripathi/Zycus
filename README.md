@@ -88,6 +88,59 @@ Three deliberate guardrails:
 - A clause **no rule covers** is reported as uncovered rather than as compliant, which also
   surfaces gaps in the playbook.
 
+## Two bugs worth reading about
+
+Both were found by running the pipeline against the sample data and reading the output,
+not by a crash. Neither would have been caught by "does it return findings?".
+
+### 1. Two redlines on one clause, each undoing the other
+
+Clause 1 breaches two rules at once: a 10-day non-renewal notice and a 7-day termination
+notice, both short of the 30-day minimum. Drafting ran per clause-rule pair, so it produced
+two separate replacements — and because each replacement rewrites the *whole* clause, they
+were mutually exclusive:
+
+- the auto-renewal redline fixed 10 → 30 days and kept `terminate for convenience upon 7 days`
+- the termination redline fixed 7 → 30 days and kept `non-renewal at least 10 days`
+
+A reviewer pasting either one would fix one violation and silently ship the other. The unit
+tests passed throughout, because each redline was individually correct.
+
+**Fix:** drafting is now grouped by clause, with every breached rule in one call, so a clause
+gets a single replacement satisfying all of them. The UI labels it, and a regression test
+asserts clause 1 yields one text containing neither `7 days` nor `10 days`.
+
+### 2. The model is a bad judge of its own confidence
+
+The low-confidence branch never fired. Against a deliberately vague draft, the model returned:
+
+| Quoted evidence | Confidence | Verdict |
+|---|---|---|
+| "a commercially reasonable amount" | 0.8 | violation |
+| "reasonable prior written notice, to be determined" | 0.9 | violation |
+| "such jurisdiction as the parties may mutually determine" | 0.9 | **no violation** |
+
+Self-reported confidence clustered at 0.8–0.9 no matter how little the clause committed to.
+The last row is the dangerous one: a clause naming no jurisdiction at all was confidently
+cleared. A threshold sitting on top of that number inherits its miscalibration, so the
+uncertainty feature was decorative.
+
+**Fix:** the model no longer judges its own certainty in either direction. Arithmetic already
+overrode confidence upward; a deterministic vagueness check now overrides it downward. When a
+clause defers its substance to an outside standard ("customary", "commercially reasonable",
+"as the parties may determine"), no verdict can be read off the text, so it is routed to a
+human whatever the model claims.
+
+Measured before and after, unchanged on the real contract and inverted on the vague one:
+
+| | Sample contract | Vague draft |
+|---|---|---|
+| Before | 7 auto-suggested, 0 flagged | 4 auto-suggested, 0 flagged |
+| After | 7 auto-suggested, 0 flagged | 0 auto-suggested, 5 flagged |
+
+Over-flagging is the safe error here: the cost is a reviewer glancing at a clause, against the
+cost of silently approving one nobody read.
+
 ## Running locally
 
 Requires Python 3.11+ and Node 18+.
