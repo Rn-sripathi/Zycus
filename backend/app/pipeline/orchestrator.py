@@ -114,7 +114,11 @@ async def review_contract(contract_text: str, client: LLMClient) -> ReviewResult
             )
         )
 
-    drafts = {id(pair): redline for (pair, _), redline in zip(deviating, redlines, strict=True)}
+    # Keyed by (clause, rule), which is unique: the matcher de-duplicates rules per clause.
+    drafts = {
+        (pair.clause.number, pair.rule.id): redline
+        for (pair, _), redline in zip(deviating, redlines, strict=True)
+    }
 
     findings = _build_findings(clauses, pairs, decisions, matches, drafts)
     summary = _summarise(clauses, findings, time.perf_counter() - started)
@@ -171,7 +175,7 @@ def _build_findings(
             continue
 
         for pair, decision in entries:
-            redline, change_summary = drafts.get(id(pair), ("", ""))
+            redline, change_summary = drafts.get((clause.number, pair.rule.id), ("", ""))
             findings.append(
                 Finding(
                     clause_number=clause.number,
