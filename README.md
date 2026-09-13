@@ -7,6 +7,8 @@ from findings a human should judge.
 Built for the Zycus Product Intern (AI PM track) take-home, Track B.
 
 - **Live app:** _add your deployed URL here_
+- **Slide deck:** [`docs/deck.html`](docs/deck.html) (open in a browser) —
+  also published at https://claude.ai/code/artifact/c8ecd3f4-7e8e-4c6a-b09e-a1e8849e58e5
 - **Stack:** FastAPI + React (Vite) + OpenAI structured outputs
 
 ---
