@@ -76,6 +76,7 @@ export default function App() {
   const [activeId, setActiveId] = useState(null)
   const [label, setLabel] = useState('Northwind vendor services agreement')
   const [lastFile, setLastFile] = useState(null)
+  const [source, setSource] = useState('sample')
   const [filter, setFilter] = useState('all')
   const [theme, setTheme] = useState(
     () => document.documentElement.dataset.theme || 'light',
@@ -153,6 +154,7 @@ export default function App() {
     try {
       const data = await uploadContract(file)
       setContractText(data.contract_text)
+      setSource('upload')
       setLastFile(data)
       setLabel(data.filename.replace(/\.[^.]+$/, ''))
       if (data.warning) setError(data.warning)
@@ -172,7 +174,10 @@ export default function App() {
     try {
       const data = await getReview(id)
       show(data, id)
-      if (data.contract_text) setContractText(data.contract_text)
+      if (data.contract_text) {
+        setContractText(data.contract_text)
+        setSource('history')
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -245,10 +250,23 @@ export default function App() {
 
           <ContractInput
             value={contractText}
-            onChange={setContractText}
+            onChange={(text) => {
+              setContractText(text)
+              setSource('edited')
+            }}
             onReview={handleReview}
-            onLoadSample={() => samples && setContractText(samples.sample_contract)}
-            onLoadAmbiguous={() => samples && setContractText(samples.ambiguous_contract)}
+            onLoadSample={() => {
+              if (!samples) return
+              setContractText(samples.sample_contract)
+              setSource('sample')
+              setLastFile(null)
+            }}
+            onLoadAmbiguous={() => {
+              if (!samples) return
+              setContractText(samples.ambiguous_contract)
+              setSource('ambiguous')
+              setLastFile(null)
+            }}
             onFile={handleFile}
             isReviewing={isReviewing}
             isUploading={isUploading}
@@ -256,6 +274,7 @@ export default function App() {
             label={label}
             onLabelChange={setLabel}
             clauseCount={clauseCount}
+            source={source}
           />
 
           {error && <div className="alert alert--error">{error}</div>}

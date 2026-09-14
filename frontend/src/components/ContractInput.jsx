@@ -1,4 +1,16 @@
+import { useEffect, useRef, useState } from 'react'
 import UploadZone from './UploadZone.jsx'
+
+// Where the text in the editor came from. Without this the editor is just a box
+// of text, and replacing it with a near-identical document looks like nothing
+// happened -- which is exactly what uploading the sample contract as a PDF does.
+const SOURCES = {
+  sample: { label: 'Sample contract', tone: '' },
+  ambiguous: { label: 'Ambiguous draft', tone: 'src--warn' },
+  upload: { label: 'Uploaded file', tone: 'src--ok' },
+  history: { label: 'Loaded from history', tone: '' },
+  edited: { label: 'Edited by you', tone: '' },
+}
 
 export default function ContractInput({
   value,
@@ -13,7 +25,27 @@ export default function ContractInput({
   label,
   onLabelChange,
   clauseCount,
+  source,
 }) {
+  const [flash, setFlash] = useState(false)
+  const firstRender = useRef(true)
+
+  // Briefly outline the editor whenever the text is replaced from elsewhere, so
+  // a swap between two similar documents is still felt.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    if (source === 'edited') return
+
+    setFlash(true)
+    const timer = setTimeout(() => setFlash(false), 900)
+    return () => clearTimeout(timer)
+  }, [source, value])
+
+  const meta = SOURCES[source] ?? SOURCES.sample
+
   return (
     <section className="card">
       <div className="card__head">
@@ -49,12 +81,15 @@ export default function ContractInput({
         </div>
 
         <div className="field">
-          <label className="field__label" htmlFor="contract-text">
-            Contract text
-          </label>
+          <div className="field__row">
+            <label className="field__label" htmlFor="contract-text">
+              Contract text
+            </label>
+            <span className={`src ${meta.tone}`}>{meta.label}</span>
+          </div>
           <textarea
             id="contract-text"
-            className="editor"
+            className={`editor ${flash ? "editor--flash" : ""}`}
             value={value}
             spellCheck={false}
             onChange={(event) => onChange(event.target.value)}

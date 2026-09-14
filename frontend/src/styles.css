@@ -548,6 +548,40 @@ button { font: inherit; color: inherit; }
   background: var(--surface);
 }
 
+.field__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Where the text came from. Replacing one contract with a near-identical one
+   otherwise looks like nothing happened. */
+.src {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--surface-3);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.src--ok { background: var(--insert-wash); color: var(--insert); }
+.src--warn { background: var(--flag-wash); color: var(--flag); }
+
+.editor--flash {
+  border-color: var(--accent);
+  animation: flash 900ms ease-out;
+}
+
+@keyframes flash {
+  0% { background: var(--accent-wash); }
+  100% { background: var(--surface-2); }
+}
+
 .editor__foot {
   display: flex;
   align-items: center;
