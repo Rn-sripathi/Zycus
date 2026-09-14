@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 
 from app.api.schemas import (
+    ExtractResponse,
     HealthResponse,
     ReviewHistoryItem,
     ReviewRequest,
@@ -19,6 +20,14 @@ from app.config import DATA_DIR, get_settings
 from app.domain.playbook import PLAYBOOK
 from app.llm.client import LLMClient, LLMError
 from app.orchestrator import review_contract
+from app.tools.segmenter import segment_clauses
+from app.tools.document import (
+    MAX_UPLOAD_BYTES,
+    SUPPORTED_EXTENSIONS,
+    UnreadableDocument,
+    UnsupportedDocument,
+    extract_text,
+)
 from app.storage import db
 from app.storage import reviews as review_store
 
@@ -49,6 +58,46 @@ async def get_samples() -> SamplesResponse:
         sample_contract=_read("sample_contract.txt"),
         ambiguous_contract=_read("ambiguous_clause.txt"),
     )
+
+
+@router.post("/extract", response_model=ExtractResponse)
+async def extract(file: UploadFile = File(...)) -> ExtractResponse:
+    """Read an uploaded contract and return its text.
+
+    Deliberately separate from /review: the text lands in the editor first, so the
+    reviewer can see what was actually read out of their file and fix it before
+    spending a model call on it.
+    """
+    try:
+        text = extract_text(file.filename or "", await file.read())
+    except UnsupportedDocument as exc:
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, str(exc)) from exc
+    except UnreadableDocument as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    clauses = len(segment_clauses(text))
+    return ExtractResponse(
+        filename=file.filename or "contract",
+        contract_text=text,
+        characters=len(text),
+        clauses_detected=clauses,
+        warning=(
+            "No numbered clauses were found in this file. The reviewer works on "
+            'clauses that start like "1. Term and Termination." You can edit the '
+            "text below before running a review."
+            if clauses == 0
+            else ""
+        ),
+    )
+
+
+@router.get("/upload-info")
+async def upload_info() -> dict:
+    """What the uploader accepts, so the UI never hardcodes it."""
+    return {
+        "supported_extensions": list(SUPPORTED_EXTENSIONS),
+        "max_bytes": MAX_UPLOAD_BYTES,
+    }
 
 
 @router.post("/review", response_model=ReviewResponse)

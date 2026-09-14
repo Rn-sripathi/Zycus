@@ -1,4 +1,4 @@
-// Confidence answers "how sure are we?" -- deliberately separate from severity.
+// How sure are we? Deliberately separate from how bad it is.
 
 const LABELS = {
   high: {
@@ -11,20 +11,18 @@ const LABELS = {
   },
   low: {
     text: 'Needs review',
-    title: 'The model was not confident enough to act on this. A human should decide.',
+    title: 'Not confident enough to act on. A human should decide.',
   },
 }
 
 export default function ConfidenceBadge({ tier, source }) {
   if (!tier) return null
-
   const label = LABELS[tier] ?? { text: tier, title: '' }
-  const suffix = source === 'deterministic' ? ' (arithmetic)' : ''
 
   return (
-    <span className={`badge badge--tier-${tier}`} title={label.title}>
+    <span className={`badge badge--${tier}`} title={label.title}>
       {label.text}
-      {suffix}
+      {source === 'deterministic' && ' · maths'}
     </span>
   )
 }

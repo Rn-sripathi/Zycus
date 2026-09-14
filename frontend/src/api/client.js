@@ -40,3 +40,23 @@ export const deleteReview = async (id) => {
     throw new Error(`Could not delete review (${response.status})`)
   }
 }
+
+// Upload is multipart, so it bypasses the JSON helper above.
+export const uploadContract = async (file) => {
+  const form = new FormData()
+  form.append('file', file)
+
+  const response = await fetch('/api/extract', { method: 'POST', body: form })
+  if (!response.ok) {
+    let detail = `Could not read that file (${response.status})`
+    try {
+      const body = await response.json()
+      if (body?.detail) detail = body.detail
+    } catch {
+      // Response wasn't JSON; keep the status-based message.
+    }
+    throw new Error(detail)
+  }
+
+  return response.json()
+}

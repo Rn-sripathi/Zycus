@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   deleteReview,
   getHealth,
@@ -7,15 +7,16 @@ import {
   getSamples,
   listReviews,
   reviewContract,
+  uploadContract,
 } from './api/client.js'
 import ContractInput from './components/ContractInput.jsx'
 import FindingCard from './components/FindingCard.jsx'
-import HistoryPanel from './components/HistoryPanel.jsx'
-import PlaybookPanel from './components/PlaybookPanel.jsx'
+import Sidebar from './components/Sidebar.jsx'
 import SummaryBar from './components/SummaryBar.jsx'
+import TopBar from './components/TopBar.jsx'
 
 // Findings are grouped by what the reviewer should do with them, not by clause
-// order: the things a human must decide come first.
+// order: anything the agent declined to act on comes first.
 const GROUPS = [
   {
     id: 'review',
@@ -43,6 +44,24 @@ const GROUPS = [
   },
 ]
 
+const FILTERS = {
+  all: () => true,
+  review: (f) => f.needs_review,
+  escalate: (f) => f.severity === 'serious',
+  deviation: (f) => f.verdict === 'deviation',
+}
+
+const PIPELINE_STEPS = [
+  'segmenting clauses',
+  'matching rules',
+  'checking thresholds',
+  'reading wording',
+  'drafting redlines',
+  'routing for review',
+]
+
+const CLAUSE_START = /^[ \t]*\d{1,2}[.)]\s+/gm
+
 export default function App() {
   const [contractText, setContractText] = useState('')
   const [samples, setSamples] = useState(null)
@@ -50,10 +69,17 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
   const [isReviewing, setIsReviewing] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [health, setHealth] = useState(null)
   const [history, setHistory] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [label, setLabel] = useState('Northwind vendor services agreement')
+  const [lastFile, setLastFile] = useState(null)
+  const [filter, setFilter] = useState('all')
+  const [theme, setTheme] = useState(
+    () => document.documentElement.dataset.theme || 'light',
+  )
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     getSamples()
@@ -68,10 +94,32 @@ export default function App() {
     refreshHistory()
   }, [])
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try {
+      localStorage.setItem('zra-theme', theme)
+    } catch {
+      // Private mode blocks storage; the toggle still works for this session.
+    }
+  }, [theme])
+
+  // Rough client-side count, shown only to reassure before a review runs.
+  // The server does the real segmentation.
+  const clauseCount = useMemo(
+    () => (contractText.match(CLAUSE_START) || []).length,
+    [contractText],
+  )
+
   function refreshHistory() {
     listReviews()
       .then(setHistory)
       .catch(() => setHistory([]))
+  }
+
+  function show(data, id) {
+    setResult(data)
+    setActiveId(id)
+    setFilter('all')
   }
 
   async function handleReview() {
@@ -81,8 +129,7 @@ export default function App() {
 
     try {
       const data = await reviewContract(contractText, label)
-      setResult(data)
-      setActiveId(data.review_id ?? null)
+      show(data, data.review_id ?? null)
       if (data.review_id) refreshHistory()
     } catch (err) {
       setError(err.message)
@@ -91,14 +138,32 @@ export default function App() {
     }
   }
 
-  async function handleOpen(id) {
-    setIsReviewing(true)
+  async function handleFile(file) {
+    setIsUploading(true)
     setError('')
 
     try {
+      const data = await uploadContract(file)
+      setContractText(data.contract_text)
+      setLastFile(data)
+      setLabel(data.filename.replace(/\.[^.]+$/, ''))
+      if (data.warning) setError(data.warning)
+    } catch (err) {
+      setError(err.message)
+      setLastFile(null)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  async function handleOpenReview(id) {
+    setIsReviewing(true)
+    setError('')
+    setSidebarOpen(false)
+
+    try {
       const data = await getReview(id)
-      setResult(data)
-      setActiveId(id)
+      show(data, id)
       if (data.contract_text) setContractText(data.contract_text)
     } catch (err) {
       setError(err.message)
@@ -107,7 +172,7 @@ export default function App() {
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDeleteReview(id) {
     try {
       await deleteReview(id)
       if (id === activeId) {
@@ -120,99 +185,123 @@ export default function App() {
     }
   }
 
-  const findings = result?.findings ?? []
+  const findings = (result?.findings ?? []).filter(FILTERS[filter])
 
   return (
     <div className="app">
-      <header className="app__header">
-        <div>
-          <h1>Zycus Redlining Agent</h1>
-          <p className="app__subtitle">
-            Reviews a counterparty contract against the Zycus playbook, proposes redline
-            language, and separates what it can verify from what a human should judge.
-          </p>
-        </div>
-      </header>
+      <TopBar
+        health={health}
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
+      />
 
-      {health && !health.llm_configured && (
-        <div className="alert alert--warning">
-          No API key is configured on the server, so reviews cannot run. Set
-          OPENAI_API_KEY and restart.
-        </div>
-      )}
+      <Sidebar
+        open={sidebarOpen}
+        rules={rules}
+        reviews={history}
+        activeId={activeId}
+        onOpenReview={handleOpenReview}
+        onDeleteReview={handleDeleteReview}
+        isBusy={isReviewing}
+        showHistory={Boolean(health?.persistence_enabled)}
+      />
 
-      <main className="app__main">
-        <PlaybookPanel rules={rules} />
+      <main className="main">
+        <div className="main__inner">
+          {health && !health.llm_configured && (
+            <div className="alert alert--warn">
+              No API key is configured on the server, so reviews cannot run. Set
+              OPENAI_API_KEY and restart.
+            </div>
+          )}
 
-        {health?.persistence_enabled && (
-          <HistoryPanel
-            reviews={history}
-            activeId={activeId}
-            onOpen={handleOpen}
-            onDelete={handleDelete}
-            isLoading={isReviewing}
+          <ContractInput
+            value={contractText}
+            onChange={setContractText}
+            onReview={handleReview}
+            onLoadSample={() => samples && setContractText(samples.sample_contract)}
+            onLoadAmbiguous={() => samples && setContractText(samples.ambiguous_contract)}
+            onFile={handleFile}
+            isReviewing={isReviewing}
+            isUploading={isUploading}
+            lastFile={lastFile}
+            label={label}
+            onLabelChange={setLabel}
+            clauseCount={clauseCount}
           />
-        )}
 
-        <ContractInput
-          value={contractText}
-          onChange={setContractText}
-          onReview={handleReview}
-          onLoadSample={() => samples && setContractText(samples.sample_contract)}
-          onLoadAmbiguous={() => samples && setContractText(samples.ambiguous_contract)}
-          isReviewing={isReviewing}
-          label={label}
-          onLabelChange={setLabel}
-        />
+          {error && <div className="alert alert--error">{error}</div>}
 
-        {error && <div className="alert alert--error">{error}</div>}
+          {isReviewing && (
+            <section className="card">
+              <div className="card__body progress">
+                <div className="progress__track">
+                  <div className="progress__bar" />
+                </div>
+                <div className="progress__steps">
+                  {PIPELINE_STEPS.map((step) => (
+                    <span key={step} className="progress__step">
+                      {step}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
 
-        {isReviewing && (
-          <div className="progress">
-            <div className="progress__bar" />
-            <p>
-              Segmenting clauses, matching playbook rules, checking thresholds and drafting
-              redlines…
-            </p>
-          </div>
-        )}
+          {result && (
+            <>
+              <SummaryBar summary={result.summary} filter={filter} onFilter={setFilter} />
 
-        {result && (
-          <>
-            <SummaryBar summary={result.summary} />
-
-            {GROUPS.map((group) => {
-              const groupFindings = findings.filter(group.match)
-              if (!groupFindings.length) return null
-
-              return (
-                <section key={group.id} className={`group group--${group.id}`}>
-                  <div className="group__header">
-                    <h2>
-                      {group.title}
-                      <span className="group__count">{groupFindings.length}</span>
-                    </h2>
-                    <p>{group.blurb}</p>
+              {findings.length === 0 && (
+                <div className="card">
+                  <div className="empty">
+                    <span className="empty__title">Nothing matches this filter</span>
+                    <span className="empty__body">
+                      Switch back to Everything to see the full review.
+                    </span>
                   </div>
-                  <div className="group__items">
-                    {groupFindings.map((finding) => (
+                </div>
+              )}
+
+              {GROUPS.map((group) => {
+                const rows = findings.filter(group.match)
+                if (!rows.length) return null
+
+                return (
+                  <section key={group.id} className="group">
+                    <div className="group__head">
+                      <h2>{group.title}</h2>
+                      <span className="count">{rows.length}</span>
+                      <p className="group__blurb">{group.blurb}</p>
+                    </div>
+                    {rows.map((finding) => (
                       <FindingCard
                         key={`${finding.clause_number}-${finding.rule_id ?? 'none'}`}
                         finding={finding}
                       />
                     ))}
-                  </div>
-                </section>
-              )
-            })}
-          </>
-        )}
-      </main>
+                  </section>
+                )
+              })}
+            </>
+          )}
 
-      <footer className="app__footer">
-        Deterministic checks run in Python before any model call, so threshold findings are
-        arithmetic rather than model judgment.
-      </footer>
+          {!result && !isReviewing && (
+            <div className="card">
+              <div className="empty">
+                <span className="empty__title">No review yet</span>
+                <span className="empty__body">
+                  Upload a contract or load one of the samples, then press Review contract.
+                  Deterministic checks run in Python before any model call, so threshold
+                  findings are arithmetic rather than model judgment.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   )
 }

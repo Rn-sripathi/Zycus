@@ -56,6 +56,7 @@ backend/app/
 │   ├── segmenter.py       step 1   contract text -> numbered clauses
 │   ├── numeric_gate.py    step 3   clause + rule -> arithmetic verdict
 │   ├── vagueness.py                clause -> the hedging it relies on
+│   ├── document.py                 uploaded PDF/Word/text -> contract text
 │   └── hitl.py            step 6   evidence -> tier, severity, who decides
 │
 ├── agents/                MODEL-BACKED — one prompt and one schema each
@@ -246,10 +247,25 @@ open the URL a few minutes before any demo.
 | GET | `/api/health` | Status, and whether the key and database are configured |
 | GET | `/api/playbook` | The 7 rules |
 | GET | `/api/samples` | Sample contract and an intentionally ambiguous draft |
+| POST | `/api/extract` | Read an uploaded PDF, Word or text file into contract text |
+| GET | `/api/upload-info` | Accepted file types and size limit |
 | POST | `/api/review` | Run a review; body `{ "contract_text": "..." }`, optional `?label=` |
 | GET | `/api/reviews` | Past reviews, newest first |
 | GET | `/api/reviews/{id}` | Reload one stored review with its findings and contract |
 | DELETE | `/api/reviews/{id}` | Remove a stored review |
+
+## Uploading a contract
+
+Drop a PDF, Word document or text file onto the page, or paste text directly. Upload never
+runs a review on its own: the extracted text lands in the editor first, so you can see what
+was actually read out of the file and fix it before spending a model call on it.
+
+The awkward part is not reading the bytes, it is line breaks. The segmenter finds clauses by
+looking for "1." at the start of a line, and PDF extraction routinely returns a paragraph as
+one long wrapped line with the numbering buried mid-sentence. Extraction is therefore always
+followed by normalisation that puts clause numbers back at the start of their own line, and
+the tests assert on *clauses found*, not characters extracted, because that is the failure
+that would otherwise pass silently.
 
 ## Persistence
 

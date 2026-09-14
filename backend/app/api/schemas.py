@@ -168,6 +168,16 @@ class SamplesResponse(BaseModel):
     ambiguous_contract: str
 
 
+class ExtractResponse(BaseModel):
+    """Text read out of an uploaded file, before any review runs."""
+
+    filename: str
+    contract_text: str
+    characters: int
+    clauses_detected: int
+    warning: str = ""
+
+
 class HealthResponse(BaseModel):
     status: str
     llm_configured: bool
