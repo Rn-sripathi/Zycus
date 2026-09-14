@@ -97,6 +97,37 @@ button { font: inherit; color: inherit; }
 
 ::selection { background: var(--accent-wash); color: var(--ink); }
 
+/* Scrollbars.
+   The platform default is a chunky light track with stepper arrows, which reads
+   as a seam down the middle of a dark panel. These are thin, track-less and
+   theme-aware, and still visible enough to grab. */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Removes the stepper arrows at each end. */
+::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 999px;
+  /* Transparent border plus padding-box clipping insets the thumb, so it floats
+     rather than filling the gutter edge to edge. */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3);
+  background-clip: padding-box;
+}
+
 /* ===== App shell ======================================================== */
 
 .app {
