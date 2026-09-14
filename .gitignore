@@ -17,8 +17,10 @@ node_modules/
 dist/
 .vite/
 
-# Build output served by FastAPI
-backend/app/static/
+# The built React bundle IS committed. FastAPI serves it, and committing it means
+# a deploy needs only Python -- no Node in the build image, no npm step that can
+# fail. Rebuild and commit it whenever the frontend changes:
+#   cd frontend && npm run build
 
 # Editors / OS
 .vscode/
