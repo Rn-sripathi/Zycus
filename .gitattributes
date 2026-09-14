@@ -1,0 +1,13 @@
+# Normalise line endings for source, but never touch binaries.
+* text=auto
+
+# Binary assets. Without this, core.autocrlf=true rewrites bytes inside these
+# files on checkout and the PDFs stop parsing.
+*.pdf   binary
+*.docx  binary
+*.pptx  binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
