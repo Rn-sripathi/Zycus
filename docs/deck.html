@@ -622,20 +622,19 @@
 
   <!-- 4 ------------------------------------------------------------- -->
   <section class="slide">
-    <div class="eyebrow"><span class="eyebrow__num">04</span><span>What broke</span></div>
-    <h2>Two bugs that the tests were happy with</h2>
+    <div class="eyebrow"><span class="eyebrow__num">04</span><span>Where the AI got it wrong</span></div>
+    <h2>Two bugs Claude wrote, and its own tests passed</h2>
     <p class="lede">
-      Both were found by reading the output, not by a crash. Neither would have been caught by
-      asking "does it return findings?".
+      Every module here was AI-generated. Both bugs below survived review and a green test suite,
+      and were caught only by reading the product output against the sample contract.
     </p>
 
     <div class="bug">
-      <div class="bug__label">Bug 1 — silent data loss</div>
+      <div class="bug__label">Bug 1 — correct in each part, wrong as a whole</div>
       <h3>Two redlines on one clause, each undoing the other</h3>
       <p style="font-size:14px;">
-        Clause 1 breaches two rules at once. Drafting ran per clause-rule pair, so it produced two
-        separate replacements — and since each rewrites the whole clause, they could not both be
-        applied.
+        Clause 1 breaches two rules at once. Claude drafted per clause-rule pair, which reads sensibly
+        one function at a time, and produced two replacements that could not both be applied.
       </p>
       <div class="conflict">
         <div>
@@ -648,8 +647,9 @@
         </div>
       </div>
       <p style="font-size:14px;">
-        Paste either one and you fix a violation while shipping the other. Every unit test passed
-        throughout, because each redline was individually correct.
+        Paste either one and you fix a violation while shipping the other. Every test passed, because
+        each redline was individually correct. The bug lives only in the relationship between two
+        findings — which is what per-function tests cannot see.
       </p>
       <div class="fix">
         <strong>Fix:</strong> drafting is grouped by clause, with every breached rule in one call, so
@@ -659,11 +659,11 @@
     </div>
 
     <div class="bug">
-      <div class="bug__label">Bug 2 — a feature that never fired</div>
+      <div class="bug__label">Bug 2 — the code was right, the assumption wasn’t</div>
       <h3>The model is a poor judge of its own confidence</h3>
       <p style="font-size:14px;">
-        The low-confidence branch never triggered. Run against a deliberately vague draft, the model
-        reported this:
+        Asked for confidence handling, Claude did the obvious thing: let the model score itself and
+        threshold on it. It never fired once. Against a deliberately vague draft:
       </p>
       <div class="table-wrap">
         <table>
@@ -678,10 +678,10 @@
         </table>
       </div>
       <p style="font-size:14px;">
-        Self-reported confidence sat at 0.8–0.9 however little the clause committed to. The last row
-        is the dangerous one: a clause naming no jurisdiction at all, confidently cleared. A
-        threshold sitting on top of that number inherits its miscalibration, so the whole uncertainty
-        feature was decoration.
+        Confidence sat at 0.8–0.9 however little the clause committed to, and a clause naming no
+        jurisdiction at all was confidently cleared. The code was not buggy — it did what it said.
+        The wrong assumption was about model behaviour, which is invisible in the source and only
+        shows up when you run it on genuinely unclear input.
       </p>
       <div class="fix">
         <strong>Fix:</strong> the model no longer judges its own certainty in either direction.

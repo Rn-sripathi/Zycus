@@ -92,31 +92,48 @@ Three deliberate guardrails:
 - A clause **no rule covers** is reported as uncovered rather than as compliant, which also
   surfaces gaps in the playbook.
 
-## Two bugs worth reading about
+## How this was built, and where the AI got it wrong
 
-Both were found by running the pipeline against the sample data and reading the output,
-not by a crash. Neither would have been caught by "does it return findings?".
+This was built with Claude Code. Every module here was AI-generated, and both of the bugs
+below were mine to catch rather than the tool's: Claude wrote plausible code, wrote tests that
+passed against it, and was wrong anyway in ways that only showed up in the output.
 
-### 1. Two redlines on one clause, each undoing the other
+That is the useful lesson from the build. The AI is reliable at the parts where correctness is
+local — a regex, an async fan-out, a React component — and unreliable exactly where a decision
+spans two places at once, or where the right answer depends on knowing how a model behaves in
+practice rather than how the code reads. Both bugs sit in that second category, and neither was
+caught by a test, because the AI wrote tests that encoded the same wrong assumption as the code.
+
+The working pattern that caught them was to stop reading the diff and start reading the
+*product output* against the sample data, line by line, asking what a reviewer would do with
+each finding.
+
+### Bug 1 — two redlines on one clause, each undoing the other
 
 Clause 1 breaches two rules at once: a 10-day non-renewal notice and a 7-day termination
-notice, both short of the 30-day minimum. Drafting ran per clause-rule pair, so it produced
-two separate replacements — and because each replacement rewrites the *whole* clause, they
-were mutually exclusive:
+notice, both short of the 30-day minimum. Claude drafted redlines per clause-rule pair, which
+reads perfectly sensibly one function at a time — and produced two separate replacements. Since
+each replacement rewrites the *whole* clause, they were mutually exclusive:
 
 - the auto-renewal redline fixed 10 → 30 days and kept `terminate for convenience upon 7 days`
 - the termination redline fixed 7 → 30 days and kept `non-renewal at least 10 days`
 
 A reviewer pasting either one would fix one violation and silently ship the other. The unit
-tests passed throughout, because each redline was individually correct.
+tests passed throughout, because each redline was individually correct — the bug only exists
+in the relationship between two findings, which is precisely what a per-function test cannot
+see and what the AI had no reason to consider while writing either one.
 
 **Fix:** drafting is now grouped by clause, with every breached rule in one call, so a clause
 gets a single replacement satisfying all of them. The UI labels it, and a regression test
 asserts clause 1 yields one text containing neither `7 days` nor `10 days`.
 
-### 2. The model is a bad judge of its own confidence
+### Bug 2 — trusting the model to report its own confidence
 
-The low-confidence branch never fired. Against a deliberately vague draft, the model returned:
+Asked to build confidence handling, Claude did the obvious thing: have the model return a
+confidence score and threshold on it. That is the design almost everyone reaches for, and it
+looked fine in review. It never fired once.
+
+Against a deliberately vague draft, the model returned:
 
 | Quoted evidence | Confidence | Verdict |
 |---|---|---|
@@ -128,6 +145,11 @@ Self-reported confidence clustered at 0.8–0.9 no matter how little the clause 
 The last row is the dangerous one: a clause naming no jurisdiction at all was confidently
 cleared. A threshold sitting on top of that number inherits its miscalibration, so the
 uncertainty feature was decorative.
+
+This is the more interesting of the two failures, because the code was not buggy. It did
+exactly what it said. The wrong assumption was about how the model behaves, which is not
+visible in the source at all — only in what comes back when you run it on input designed to
+be genuinely unclear.
 
 **Fix:** the model no longer judges its own certainty in either direction. Arithmetic already
 overrode confidence upward; a deterministic vagueness check now overrides it downward. When a
