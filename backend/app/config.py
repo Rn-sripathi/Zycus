@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
+    # Postgres (Neon). Empty means the app runs without persistence.
+    database_url: str = ""
+    database_pool_size: int = 5
+
     llm_timeout_seconds: float = 30.0
     llm_max_retries: int = 2
 
@@ -37,6 +41,10 @@ class Settings(BaseSettings):
     def llm_enabled(self) -> bool:
         """False when no key is configured -- lets the deterministic layer run alone."""
         return bool(self.openai_api_key.strip())
+
+    @property
+    def persistence_enabled(self) -> bool:
+        return bool(self.database_url.strip())
 
 
 @lru_cache

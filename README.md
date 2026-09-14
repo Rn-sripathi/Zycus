@@ -11,7 +11,7 @@ Built for the Zycus Product Intern (AI PM track) take-home, Track B.
   (6 slides) — also as [`docs/deck.html`](docs/deck.html) and published at
   https://claude.ai/code/artifact/c8ecd3f4-7e8e-4c6a-b09e-a1e8849e58e5
 - **Written version:** [`docs/Zycus_Redlining_Agent_Writeup.docx`](docs/Zycus_Redlining_Agent_Writeup.docx)
-- **Stack:** FastAPI + React (Vite) + OpenAI structured outputs
+- **Stack:** FastAPI + React (Vite) + OpenAI structured outputs + Postgres (Neon)
 
 ---
 
@@ -65,6 +65,7 @@ backend/app/
 │
 ├── domain/                types, and the 7 playbook rules as data + lookup
 ├── llm/                   OpenAI client wrapper and prompt templates
+├── storage/               Postgres: pool, schema, and the review repository
 ├── api/                   routes and transport DTOs
 └── data/                  sample contract and a deliberately vague draft
 ```
@@ -242,10 +243,32 @@ open the URL a few minutes before any demo.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/health` | Status and whether a key is configured |
+| GET | `/api/health` | Status, and whether the key and database are configured |
 | GET | `/api/playbook` | The 7 rules |
 | GET | `/api/samples` | Sample contract and an intentionally ambiguous draft |
-| POST | `/api/review` | Run a review; body `{ "contract_text": "..." }` |
+| POST | `/api/review` | Run a review; body `{ "contract_text": "..." }`, optional `?label=` |
+| GET | `/api/reviews` | Past reviews, newest first |
+| GET | `/api/reviews/{id}` | Reload one stored review with its findings and contract |
+| DELETE | `/api/reviews/{id}` | Remove a stored review |
+
+## Persistence
+
+Every review is written to Postgres with its findings, giving the tool an audit trail: what the
+agent concluded about which draft, when, and which findings it declined to act on. The UI lists
+past reviews and reloads any of them with the original contract text.
+
+Two deliberate choices:
+
+- **Persistence is optional.** With no `DATABASE_URL` the pool never opens and everything works
+  as before, which is why the offline test suite still runs with no database and no API key.
+- **Writes are best-effort.** If the database is unreachable, the failure is logged and the
+  reviewer still gets the findings already on their screen. Losing the audit trail is bad;
+  losing the review someone is mid-way through reading is worse.
+
+Two Neon specifics the code handles, both of which fail confusingly otherwise: the `-pooler`
+host runs pgbouncer, so asyncpg's prepared-statement cache is disabled, and the `sslmode` and
+`channel_binding` query parameters are libpq options that asyncpg does not understand, so they
+are stripped and TLS is configured explicitly.
 
 ## A note on the playbook
 

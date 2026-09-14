@@ -6,6 +6,8 @@ touching pipeline logic.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from app.domain.models import Finding, NumericEvidence, ReviewResult, ReviewSummary, Rule
@@ -99,12 +101,41 @@ class SummaryOut(BaseModel):
 class ReviewResponse(BaseModel):
     summary: SummaryOut
     findings: list[FindingOut]
+    review_id: str | None = None  # null when persistence is disabled
+    contract_text: str | None = None  # returned when loading from history
 
     @classmethod
-    def from_domain(cls, result: ReviewResult) -> "ReviewResponse":
+    def from_domain(
+        cls,
+        result: ReviewResult,
+        review_id: str | None = None,
+        contract_text: str | None = None,
+    ) -> "ReviewResponse":
         return cls(
             summary=SummaryOut.from_domain(result.summary),
             findings=[FindingOut.from_domain(f) for f in result.findings],
+            review_id=review_id,
+            contract_text=contract_text,
+        )
+
+
+class ReviewHistoryItem(BaseModel):
+    """One row in the history list. Summary only; findings load on demand."""
+
+    id: str
+    created_at: datetime
+    label: str
+    model: str
+    summary: SummaryOut
+
+    @classmethod
+    def from_domain(cls, stored) -> "ReviewHistoryItem":
+        return cls(
+            id=str(stored.id),
+            created_at=stored.created_at,
+            label=stored.label,
+            model=stored.model,
+            summary=SummaryOut.from_domain(stored.summary),
         )
 
 
@@ -140,4 +171,5 @@ class SamplesResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     llm_configured: bool
+    persistence_enabled: bool
     model: str

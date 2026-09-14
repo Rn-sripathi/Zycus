@@ -22,7 +22,9 @@ export default function SummaryBar({ summary }) {
           </div>
         ))}
       </div>
-      <p className="summary__timing">Completed in {summary.elapsed_seconds}s</p>
+      <p className="summary__timing">
+        Completed in {Number(summary.elapsed_seconds).toFixed(2)}s
+      </p>
     </section>
   )
 }

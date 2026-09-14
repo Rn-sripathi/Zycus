@@ -5,6 +5,8 @@ export default function ContractInput({
   onLoadSample,
   onLoadAmbiguous,
   isReviewing,
+  label,
+  onLabelChange,
 }) {
   return (
     <section className="panel">
@@ -19,6 +21,19 @@ export default function ContractInput({
           </button>
         </div>
       </div>
+
+      {onLabelChange && (
+        <label className="field">
+          <span className="field__label">Name this review</span>
+          <input
+            className="field__input"
+            type="text"
+            value={label}
+            onChange={(event) => onLabelChange(event.target.value)}
+            placeholder="e.g. Northwind vendor services agreement"
+          />
+        </label>
+      )}
 
       <textarea
         className="contract-input"

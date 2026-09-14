@@ -13,6 +13,8 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false # set in the Render dashboard, never committed
+      - key: DATABASE_URL
+        sync: false # Neon connection string, set in the dashboard
       - key: OPENAI_MODEL
         value: gpt-4o-mini
       - key: PYTHON_VERSION

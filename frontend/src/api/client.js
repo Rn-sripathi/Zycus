@@ -24,8 +24,19 @@ export const getHealth = () => request('/api/health')
 export const getPlaybook = () => request('/api/playbook')
 export const getSamples = () => request('/api/samples')
 
-export const reviewContract = (contractText) =>
-  request('/api/review', {
+export const reviewContract = (contractText, label = '') =>
+  request(`/api/review?label=${encodeURIComponent(label)}`, {
     method: 'POST',
     body: JSON.stringify({ contract_text: contractText }),
   })
+
+// History. These return empty / throw only when persistence is switched off.
+export const listReviews = (limit = 25) => request(`/api/reviews?limit=${limit}`)
+export const getReview = (id) => request(`/api/reviews/${id}`)
+
+export const deleteReview = async (id) => {
+  const response = await fetch(`/api/reviews/${id}`, { method: 'DELETE' })
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Could not delete review (${response.status})`)
+  }
+}

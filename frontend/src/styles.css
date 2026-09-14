@@ -200,6 +200,128 @@ body {
   color: var(--text-muted);
 }
 
+/* Review name field -------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.field__label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field__input {
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: #fcfcfd;
+}
+
+.field__input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* History ------------------------------------------------------------------ */
+
+.history__summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history__empty {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.history__list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.history__item {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.history__item--active {
+  border-color: var(--accent);
+  background: #f6f9fe;
+}
+
+.history__open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.history__open:hover:not(:disabled) {
+  background: #f7f8fa;
+}
+
+.history__open:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.history__label {
+  font-size: 13.5px;
+  font-weight: 550;
+}
+
+.history__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.history__flagged {
+  color: var(--review);
+  font-weight: 600;
+}
+
+.history__delete {
+  border: none;
+  background: none;
+  padding: 0 12px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.history__delete:hover {
+  color: var(--serious);
+  background: var(--serious-bg);
+}
+
 /* Summary ----------------------------------------------------------------- */
 
 .summary {

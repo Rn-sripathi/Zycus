@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
-import { getHealth, getPlaybook, getSamples, reviewContract } from './api/client.js'
+import {
+  deleteReview,
+  getHealth,
+  getPlaybook,
+  getReview,
+  getSamples,
+  listReviews,
+  reviewContract,
+} from './api/client.js'
 import ContractInput from './components/ContractInput.jsx'
 import FindingCard from './components/FindingCard.jsx'
+import HistoryPanel from './components/HistoryPanel.jsx'
 import PlaybookPanel from './components/PlaybookPanel.jsx'
 import SummaryBar from './components/SummaryBar.jsx'
 
@@ -42,6 +51,9 @@ export default function App() {
   const [error, setError] = useState('')
   const [isReviewing, setIsReviewing] = useState(false)
   const [health, setHealth] = useState(null)
+  const [history, setHistory] = useState([])
+  const [activeId, setActiveId] = useState(null)
+  const [label, setLabel] = useState('Northwind vendor services agreement')
 
   useEffect(() => {
     getSamples()
@@ -53,7 +65,14 @@ export default function App() {
 
     getPlaybook().then(setRules).catch(() => {})
     getHealth().then(setHealth).catch(() => {})
+    refreshHistory()
   }, [])
+
+  function refreshHistory() {
+    listReviews()
+      .then(setHistory)
+      .catch(() => setHistory([]))
+  }
 
   async function handleReview() {
     setIsReviewing(true)
@@ -61,11 +80,43 @@ export default function App() {
     setResult(null)
 
     try {
-      setResult(await reviewContract(contractText))
+      const data = await reviewContract(contractText, label)
+      setResult(data)
+      setActiveId(data.review_id ?? null)
+      if (data.review_id) refreshHistory()
     } catch (err) {
       setError(err.message)
     } finally {
       setIsReviewing(false)
+    }
+  }
+
+  async function handleOpen(id) {
+    setIsReviewing(true)
+    setError('')
+
+    try {
+      const data = await getReview(id)
+      setResult(data)
+      setActiveId(id)
+      if (data.contract_text) setContractText(data.contract_text)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsReviewing(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    try {
+      await deleteReview(id)
+      if (id === activeId) {
+        setActiveId(null)
+        setResult(null)
+      }
+      refreshHistory()
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -93,6 +144,16 @@ export default function App() {
       <main className="app__main">
         <PlaybookPanel rules={rules} />
 
+        {health?.persistence_enabled && (
+          <HistoryPanel
+            reviews={history}
+            activeId={activeId}
+            onOpen={handleOpen}
+            onDelete={handleDelete}
+            isLoading={isReviewing}
+          />
+        )}
+
         <ContractInput
           value={contractText}
           onChange={setContractText}
@@ -100,6 +161,8 @@ export default function App() {
           onLoadSample={() => samples && setContractText(samples.sample_contract)}
           onLoadAmbiguous={() => samples && setContractText(samples.ambiguous_contract)}
           isReviewing={isReviewing}
+          label={label}
+          onLabelChange={setLabel}
         />
 
         {error && <div className="alert alert--error">{error}</div>}
