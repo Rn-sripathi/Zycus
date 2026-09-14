@@ -16,7 +16,7 @@ from app.api.schemas import (
 )
 from app.domain.playbook import PLAYBOOK
 from app.llm.client import LLMClient, LLMError
-from app.pipeline.orchestrator import review_contract
+from app.orchestrator import review_contract
 
 logger = logging.getLogger(__name__)
 

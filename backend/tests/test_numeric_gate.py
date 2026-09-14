@@ -11,7 +11,7 @@ import pytest
 
 from app.domain.models import Clause, GateResult, Unit
 from app.domain.playbook import RULES_BY_ID
-from app.pipeline.numeric_gate import evaluate_numeric_rule, extract_quantities
+from app.tools.numeric_gate import evaluate_numeric_rule, extract_quantities
 
 CLAUSE_1 = Clause(
     number=1,

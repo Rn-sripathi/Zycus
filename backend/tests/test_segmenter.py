@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.pipeline.segmenter import segment_clauses
+from app.tools.segmenter import segment_clauses
 
 SAMPLE = (Path(__file__).resolve().parents[1] / "app" / "data" / "sample_contract.txt").read_text(
     encoding="utf-8"

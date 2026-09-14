@@ -1,9 +1,15 @@
 """Runs the six pipeline steps and assembles the review.
 
+This module is the only place that knows the order of the work. Everything it
+calls lives in one of two packages, and the split is the point:
+
+    app/tools/   deterministic Python, callable alone, no model or network
+    app/agents/  model-backed steps, one prompt and one schema each
+
 Reads top to bottom in the same order as the architecture diagram:
 
-    1 segment  ->  2 match rules  ->  3 numeric gate  ->  4 compliance check
-                ->  5 draft redlines  ->  6 classify
+    1 segment [tool]     ->  2 match rules [agent]    ->  3 numeric gate [tool]
+    4 compliance [agent] ->  5 draft redlines [agent] ->  6 classify [tool]
 
 Steps 4 and 5 fan out with asyncio.gather. Done sequentially, a review of the
 sample contract would mean roughly fifteen round trips one after another; run
@@ -32,11 +38,11 @@ from app.domain.models import (
     Verdict,
 )
 from app.llm.client import LLMClient
-from app.pipeline import compliance, redliner, rule_matcher
-from app.pipeline.hitl import classify
-from app.pipeline.numeric_gate import evaluate_numeric_rule
-from app.pipeline.segmenter import segment_clauses
-from app.pipeline.vagueness import detect_hedges
+from app.agents import compliance, redliner, rule_matcher
+from app.tools.hitl import classify
+from app.tools.numeric_gate import evaluate_numeric_rule
+from app.tools.segmenter import segment_clauses
+from app.tools.vagueness import detect_hedges
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from app.domain.models import EvidenceSource, Severity, Tier, Verdict
-from app.pipeline.orchestrator import review_contract
+from app.orchestrator import review_contract
 
 SAMPLE = (
     Path(__file__).resolve().parents[1] / "app" / "data" / "sample_contract.txt"

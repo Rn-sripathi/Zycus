@@ -17,7 +17,7 @@ from app.domain.models import (
     Verdict,
 )
 from app.domain.playbook import RULES_BY_ID
-from app.pipeline.hitl import classify
+from app.tools.hitl import classify
 
 TERMINATION = RULES_BY_ID["termination_notice"]  # default severity: minor
 PAYMENT = RULES_BY_ID["payment_terms"]  # default severity: serious

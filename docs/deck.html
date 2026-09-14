@@ -524,8 +524,9 @@
     <div class="eyebrow"><span class="eyebrow__num">02</span><span>Architecture</span></div>
     <h2>Six steps, and the model only runs where it earns its place</h2>
     <p class="lede">
-      One endpoint runs a fixed pipeline. Each step is one module, so the diagram and the directory
-      listing are the same thing. Steps 4 and 5 fan out concurrently.
+      One endpoint runs a fixed pipeline. Each step is one module, split at the top level into
+      <code>app/tools</code> (deterministic) and <code>app/agents</code> (model-backed), so the
+      diagram and the directory listing are the same thing. Steps 4 and 5 fan out concurrently.
     </p>
 
     <div class="diagram">

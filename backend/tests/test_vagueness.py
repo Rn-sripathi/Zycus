@@ -14,9 +14,9 @@ import pytest
 
 from app.domain.models import LLMAssessment, Tier, Verdict
 from app.domain.playbook import RULES_BY_ID
-from app.pipeline.hitl import classify
-from app.pipeline.segmenter import segment_clauses
-from app.pipeline.vagueness import detect_hedges
+from app.tools.hitl import classify
+from app.tools.segmenter import segment_clauses
+from app.tools.vagueness import detect_hedges
 
 DATA = Path(__file__).resolve().parents[1] / "app" / "data"
 SAMPLE = (DATA / "sample_contract.txt").read_text(encoding="utf-8")

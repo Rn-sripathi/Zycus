@@ -45,7 +45,34 @@ FastAPI orchestrator
 Findings grouped by what the reviewer needs to do
 ```
 
-The directory layout mirrors this: each step is one module in `backend/app/pipeline/`.
+The directory layout mirrors this, and the split between the two kinds of step is the
+top-level boundary rather than a comment:
+
+```
+backend/app/
+├── orchestrator.py        the only module that knows the order of the work
+│
+├── tools/                 DETERMINISTIC — no model, no network, no API key
+│   ├── segmenter.py       step 1   contract text -> numbered clauses
+│   ├── numeric_gate.py    step 3   clause + rule -> arithmetic verdict
+│   ├── vagueness.py                clause -> the hedging it relies on
+│   └── hitl.py            step 6   evidence -> tier, severity, who decides
+│
+├── agents/                MODEL-BACKED — one prompt and one schema each
+│   ├── rule_matcher.py    step 2   which rules govern which clauses
+│   ├── compliance.py      step 4   does this clause breach this rule
+│   └── redliner.py        step 5   replacement text for a clause
+│
+├── domain/                types, and the 7 playbook rules as data + lookup
+├── llm/                   OpenAI client wrapper and prompt templates
+├── api/                   routes and transport DTOs
+└── data/                  sample contract and a deliberately vague draft
+```
+
+Everything under `tools/` is callable on its own and unit-tested without a key, which is why
+the offline suite runs in about a second. Two of those tools *overrule* the model rather than
+serve it: `numeric_gate` settles a rule by arithmetic before the model is asked, and
+`vagueness` pulls confidence down whatever the model claims about itself.
 
 ### Two decisions worth calling out
 

@@ -20,7 +20,7 @@ import pytest
 from app.config import get_settings
 from app.domain.models import EvidenceSource, Severity, Tier, Verdict
 from app.llm.client import LLMClient
-from app.pipeline.orchestrator import review_contract
+from app.orchestrator import review_contract
 
 pytestmark = pytest.mark.skipif(
     not get_settings().llm_enabled,
