@@ -31,28 +31,35 @@ empty list. Do not force a match.
 - Match on subject matter, not on whether the wording looks favourable or unfavourable.\
 """
 
-RULE_MATCHER_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["matches"],
-    "properties": {
-        "matches": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["clause_number", "rule_ids"],
-                "properties": {
-                    "clause_number": {"type": "integer"},
-                    "rule_ids": {
-                        "type": "array",
-                        "items": {"type": "string", "enum": list(VALID_RULE_IDS)},
+def build_rule_matcher_schema(rule_ids: tuple[str, ...] = VALID_RULE_IDS) -> dict[str, Any]:
+    """Constrain the model to the ids of the playbook actually in use.
+
+    Built per call rather than once at import, because the playbook can be
+    replaced at request time and a stale enum would let the model return ids that
+    no longer exist.
+    """
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["matches"],
+        "properties": {
+            "matches": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["clause_number", "rule_ids"],
+                    "properties": {
+                        "clause_number": {"type": "integer"},
+                        "rule_ids": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": list(rule_ids)},
+                        },
                     },
                 },
-            },
-        }
-    },
-}
+            }
+        },
+    }
 
 
 def build_rule_matcher_prompt(clauses_block: str, rules_block: str) -> str:

@@ -24,6 +24,7 @@ import time
 from dataclasses import dataclass
 
 from app.config import get_settings
+from app.domain.playbook import PLAYBOOK
 from app.domain.models import (
     Clause,
     Finding,
@@ -57,7 +58,16 @@ class _Pair:
     assessment: LLMAssessment | None = None
 
 
-async def review_contract(contract_text: str, client: LLMClient) -> ReviewResult:
+async def review_contract(
+    contract_text: str,
+    client: LLMClient,
+    rules: tuple[Rule, ...] = PLAYBOOK,
+) -> ReviewResult:
+    """Review ``contract_text`` against ``rules``.
+
+    The playbook is a parameter so a caller can supply its own without this module
+    or any step below it reaching for a global.
+    """
     started = time.perf_counter()
     settings = get_settings()
 
@@ -67,7 +77,7 @@ async def review_contract(contract_text: str, client: LLMClient) -> ReviewResult
         return ReviewResult(findings=[], summary=ReviewSummary())
 
     # Step 2 -- one batched model call.
-    matches = await rule_matcher.match_rules(clauses, client)
+    matches = await rule_matcher.match_rules(clauses, client, rules)
 
     # Step 3 -- deterministic arithmetic wherever a rule has a threshold.
     pairs: list[_Pair] = []

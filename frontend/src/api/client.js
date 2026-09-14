@@ -24,10 +24,18 @@ export const getHealth = () => request('/api/health')
 export const getPlaybook = () => request('/api/playbook')
 export const getSamples = () => request('/api/samples')
 
-export const reviewContract = (contractText, label = '') =>
+export const reviewContract = (contractText, label = '', playbook = null) =>
   request(`/api/review?label=${encodeURIComponent(label)}`, {
     method: 'POST',
-    body: JSON.stringify({ contract_text: contractText }),
+    body: JSON.stringify({ contract_text: contractText, playbook }),
+  })
+
+export const exportPlaybook = () => request('/api/playbook/export')
+
+export const validatePlaybook = (playbook) =>
+  request('/api/playbook/validate', {
+    method: 'POST',
+    body: JSON.stringify({ playbook }),
   })
 
 // History. These return empty / throw only when persistence is switched off.

@@ -10,9 +10,14 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+import PlaybookLoader from './PlaybookLoader.jsx'
+
 export default function Sidebar({
   open,
   rules,
+  customPlaybook,
+  onApplyPlaybook,
+  onResetPlaybook,
   reviews,
   activeId,
   onOpenReview,
@@ -24,7 +29,9 @@ export default function Sidebar({
     <aside className={`sidebar ${open ? 'sidebar--open' : ''}`}>
       <section className="side-section">
         <div className="side-section__head">
-          <span className="side-section__title">Playbook</span>
+          <span className="side-section__title">
+            {customPlaybook ? "Playbook (custom)" : "Playbook"}
+          </span>
           <span className="count">{rules.length}</span>
         </div>
 
@@ -44,6 +51,12 @@ export default function Sidebar({
           ))}
         </div>
       </section>
+
+      <PlaybookLoader
+        custom={customPlaybook}
+        onApply={onApplyPlaybook}
+        onReset={onResetPlaybook}
+      />
 
       {showHistory && (
         <section className="side-section">

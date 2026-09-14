@@ -15,6 +15,14 @@ from app.domain.models import Finding, NumericEvidence, ReviewResult, ReviewSumm
 
 class ReviewRequest(BaseModel):
     contract_text: str = Field(min_length=1, max_length=120_000)
+    # Optional custom playbook. Omitted means the shipped one.
+    playbook: list[dict] | None = None
+
+
+class PlaybookRequest(BaseModel):
+    """A playbook on its own, for validation before a review is run."""
+
+    playbook: list[dict] | dict
 
 
 class NumericEvidenceOut(BaseModel):
@@ -103,6 +111,9 @@ class ReviewResponse(BaseModel):
     findings: list[FindingOut]
     review_id: str | None = None  # null when persistence is disabled
     contract_text: str | None = None  # returned when loading from history
+    # The rules this review was judged against, so an old review is never shown
+    # against a playbook it never saw.
+    playbook: list[dict] | None = None
 
     @classmethod
     def from_domain(
@@ -110,12 +121,14 @@ class ReviewResponse(BaseModel):
         result: ReviewResult,
         review_id: str | None = None,
         contract_text: str | None = None,
+        playbook: list[dict] | None = None,
     ) -> "ReviewResponse":
         return cls(
             summary=SummaryOut.from_domain(result.summary),
             findings=[FindingOut.from_domain(f) for f in result.findings],
             review_id=review_id,
             contract_text=contract_text,
+            playbook=playbook,
         )
 
 
@@ -161,6 +174,15 @@ class RuleOut(BaseModel):
             threshold=rule.threshold,
             unit=rule.unit.value if rule.unit else None,
         )
+
+
+class PlaybookValidation(BaseModel):
+    valid: bool
+    rule_count: int = 0
+    numeric_rules: int = 0
+    qualitative_rules: int = 0
+    rules: list[RuleOut] = []
+    error: str = ""
 
 
 class SamplesResponse(BaseModel):

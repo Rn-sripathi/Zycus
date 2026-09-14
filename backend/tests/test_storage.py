@@ -134,7 +134,7 @@ class TestRoundTrip:
         assert saved is not None
 
     def test_findings_survive_unchanged(self, run, saved):
-        result, contract = run(store.get_review(saved))
+        result, contract, _ = run(store.get_review(saved))
         assert contract == CONTRACT
         assert len(result.findings) == 3
 
@@ -152,7 +152,7 @@ class TestRoundTrip:
             assert after.review_reasons == before.review_reasons
 
     def test_numeric_evidence_survives(self, run, saved):
-        result, _ = run(store.get_review(saved))
+        result, _, _ = run(store.get_review(saved))
         numeric = result.findings[0].numeric
         assert numeric is not None
         assert numeric.found_value == 7
@@ -161,11 +161,11 @@ class TestRoundTrip:
         assert numeric.result is GateResult.VERIFIED_VIOLATION
 
     def test_finding_order_is_preserved(self, run, saved):
-        result, _ = run(store.get_review(saved))
+        result, _, _ = run(store.get_review(saved))
         assert [f.clause_number for f in result.findings] == [1, 2, 3]
 
     def test_summary_survives(self, run, saved):
-        result, _ = run(store.get_review(saved))
+        result, _, _ = run(store.get_review(saved))
         assert result.summary.deviations == 1
         assert result.summary.needs_review == 1
         assert result.summary.clauses_without_applicable_rule == 1

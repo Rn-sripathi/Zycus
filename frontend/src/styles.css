@@ -296,6 +296,47 @@ button { font: inherit; color: inherit; }
 
 .rule__text { margin-top: 3px; font-size: 11.5px; color: var(--ink-2); }
 
+/* Custom playbook ------------------------------------------------------ */
+
+.pb-active {
+  display: grid;
+  gap: 7px;
+  padding: 10px 11px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--accent-wash);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.pb-editor { display: grid; gap: 9px; }
+
+.pb-help { font-size: 11.5px; color: var(--ink-3); }
+
+.pb-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.pb-json {
+  min-height: 170px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pb-error {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--strike-wash);
+  color: var(--strike);
+  font-size: 11.5px;
+}
+
+.pb-ok {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--insert-wash);
+  color: var(--insert);
+  font-size: 11.5px;
+}
+
 /* History -------------------------------------------------------------- */
 
 .history { display: flex; flex-direction: column; gap: 5px; }

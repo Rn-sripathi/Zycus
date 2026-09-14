@@ -16,7 +16,11 @@ CREATE TABLE IF NOT EXISTS reviews (
     auto_suggested   INTEGER      NOT NULL DEFAULT 0,
     needs_review     INTEGER      NOT NULL DEFAULT 0,
     uncovered        INTEGER      NOT NULL DEFAULT 0,
-    elapsed_seconds  DOUBLE PRECISION NOT NULL DEFAULT 0
+    elapsed_seconds  DOUBLE PRECISION NOT NULL DEFAULT 0,
+
+    -- The rules this review was judged against. Without this, editing the
+    -- playbook would silently rewrite the meaning of every past review.
+    playbook         JSONB        NOT NULL DEFAULT '[]'::jsonb
 );
 
 -- REAL is single precision, so a stored 6.13 reads back as 6.130000114440918.
@@ -71,3 +75,6 @@ CREATE INDEX IF NOT EXISTS findings_review_position_idx
 CREATE INDEX IF NOT EXISTS findings_needs_review_idx
     ON findings (needs_review)
     WHERE needs_review;
+
+-- Added after reviews already existed; older rows keep an empty playbook.
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS playbook JSONB NOT NULL DEFAULT '[]'::jsonb;

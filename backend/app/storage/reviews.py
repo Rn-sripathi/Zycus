@@ -33,8 +33,8 @@ _INSERT_REVIEW = """
 INSERT INTO reviews (
     id, label, contract_text, model,
     clauses_reviewed, deviations, serious, minor,
-    auto_suggested, needs_review, uncovered, elapsed_seconds
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    auto_suggested, needs_review, uncovered, elapsed_seconds, playbook
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
 RETURNING created_at
 """
 
@@ -78,6 +78,7 @@ async def save_review(
     *,
     label: str = "",
     model: str = "",
+    playbook: list[dict] | None = None,
 ) -> uuid.UUID | None:
     """Persist a completed review. Returns None when persistence is disabled.
 
@@ -100,6 +101,7 @@ async def save_review(
                     s.clauses_reviewed, s.deviations, s.serious, s.minor,
                     s.auto_suggested, s.needs_review,
                     s.clauses_without_applicable_rule, s.elapsed_seconds,
+                    json.dumps(playbook or []),
                 )
                 await connection.executemany(
                     _INSERT_FINDING,
@@ -139,8 +141,10 @@ async def list_reviews(limit: int = 25, offset: int = 0) -> list[StoredReview]:
     ]
 
 
-async def get_review(review_id: uuid.UUID) -> tuple[ReviewResult, str] | None:
-    """Return ``(result, contract_text)`` for a stored review, or None."""
+async def get_review(
+    review_id: uuid.UUID,
+) -> tuple[ReviewResult, str, list] | None:
+    """Return ``(result, contract_text, playbook)`` for a stored review, or None."""
     pool = db.get_pool()
     if pool is None:
         return None
@@ -162,7 +166,11 @@ async def get_review(review_id: uuid.UUID) -> tuple[ReviewResult, str] | None:
         elapsed_seconds=review["elapsed_seconds"],
     )
     findings = [_finding_from_row(row) for row in rows]
-    return ReviewResult(findings=findings, summary=summary), review["contract_text"]
+    return (
+        ReviewResult(findings=findings, summary=summary),
+        review["contract_text"],
+        _as_list(review["playbook"]),
+    )
 
 
 async def delete_review(review_id: uuid.UUID) -> bool:
@@ -236,7 +244,7 @@ def _finding_from_row(row) -> Finding:
     )
 
 
-def _as_list(value) -> list[str]:
+def _as_list(value) -> list:
     if not value:
         return []
     return json.loads(value) if isinstance(value, str) else list(value)

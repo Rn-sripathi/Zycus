@@ -10,6 +10,8 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from app.api.schemas import (
     ExtractResponse,
     HealthResponse,
+    PlaybookRequest,
+    PlaybookValidation,
     ReviewHistoryItem,
     ReviewRequest,
     ReviewResponse,
@@ -17,7 +19,8 @@ from app.api.schemas import (
     SamplesResponse,
 )
 from app.config import DATA_DIR, get_settings
-from app.domain.playbook import PLAYBOOK
+from app.domain.models import RuleType
+from app.domain.playbook import PLAYBOOK, PlaybookError, rules_from_json, rules_to_json
 from app.llm.client import LLMClient, LLMError
 from app.orchestrator import review_contract
 from app.tools.segmenter import segment_clauses
@@ -50,6 +53,29 @@ async def health() -> HealthResponse:
 @router.get("/playbook", response_model=list[RuleOut])
 async def get_playbook() -> list[RuleOut]:
     return [RuleOut.from_domain(rule) for rule in PLAYBOOK]
+
+
+@router.get("/playbook/export")
+async def export_playbook() -> list[dict]:
+    """The shipped playbook as JSON, so a custom one starts from a working file."""
+    return rules_to_json()
+
+
+@router.post("/playbook/validate", response_model=PlaybookValidation)
+async def validate_playbook(request: PlaybookRequest) -> PlaybookValidation:
+    """Check a playbook before it is used, so mistakes surface without a model call."""
+    try:
+        rules = rules_from_json(request.playbook)
+    except PlaybookError as exc:
+        return PlaybookValidation(valid=False, error=str(exc))
+
+    return PlaybookValidation(
+        valid=True,
+        rule_count=len(rules),
+        numeric_rules=sum(1 for r in rules if r.rule_type is RuleType.NUMERIC),
+        qualitative_rules=sum(1 for r in rules if r.rule_type is not RuleType.NUMERIC),
+        rules=[RuleOut.from_domain(rule) for rule in rules],
+    )
 
 
 @router.get("/samples", response_model=SamplesResponse)
@@ -110,8 +136,13 @@ async def review(request: ReviewRequest, label: str = Query("")) -> ReviewRespon
         )
 
     try:
+        rules = rules_from_json(request.playbook) if request.playbook else PLAYBOOK
+    except PlaybookError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    try:
         client = LLMClient()
-        result = await review_contract(request.contract_text, client)
+        result = await review_contract(request.contract_text, client, rules)
     except LLMError as exc:
         logger.exception("Review failed")
         raise HTTPException(
@@ -134,9 +165,16 @@ async def review(request: ReviewRequest, label: str = Query("")) -> ReviewRespon
         request.contract_text,
         label=label,
         model=settings.openai_model,
+        # Snapshot the rules used, so reopening an old review shows the playbook it
+        # was actually judged against rather than whatever the playbook is today.
+        playbook=rules_to_json(rules),
     )
 
-    return ReviewResponse.from_domain(result, review_id=str(review_id) if review_id else None)
+    return ReviewResponse.from_domain(
+        result,
+        review_id=str(review_id) if review_id else None,
+        playbook=rules_to_json(rules),
+    )
 
 
 @router.get("/reviews", response_model=list[ReviewHistoryItem])
@@ -159,9 +197,12 @@ async def get_review(review_id: str) -> ReviewResponse:
             detail="No stored review with that id.",
         )
 
-    result, contract_text = found
+    result, contract_text, playbook = found
     return ReviewResponse.from_domain(
-        result, review_id=review_id, contract_text=contract_text
+        result,
+        review_id=review_id,
+        contract_text=contract_text,
+        playbook=playbook or rules_to_json(),
     )
 
 

@@ -246,6 +246,8 @@ open the URL a few minutes before any demo.
 |--------|------|---------|
 | GET | `/api/health` | Status, and whether the key and database are configured |
 | GET | `/api/playbook` | The 7 rules |
+| GET | `/api/playbook/export` | The shipped playbook as JSON, as a starting point |
+| POST | `/api/playbook/validate` | Check a custom playbook before using it |
 | GET | `/api/samples` | Sample contract and an intentionally ambiguous draft |
 | POST | `/api/extract` | Read an uploaded PDF, Word or text file into contract text |
 | GET | `/api/upload-info` | Accepted file types and size limit |
@@ -253,6 +255,48 @@ open the URL a few minutes before any demo.
 | GET | `/api/reviews` | Past reviews, newest first |
 | GET | `/api/reviews/{id}` | Reload one stored review with its findings and contract |
 | DELETE | `/api/reviews/{id}` | Remove a stored review |
+
+## Bringing your own playbook
+
+The shipped playbook is a default, not a fixture. A different one can be loaded from the rail
+as JSON, validated before use, and passed with a review.
+
+Rules are **structured data, not prose**, and that is the whole design decision. A rule typed
+as a sentence can only ever be judged by the model. A rule that states its threshold, unit and
+anchor phrases can still be settled by arithmetic, which is what keeps findings on the verified
+tier. So a numeric rule without anchors is rejected with an explanation rather than quietly
+accepted and demoted to model judgment.
+
+Anchors are the phrases that tie a number to a rule. They exist because a clause can hold
+several numbers governed by different rules, which is exactly what clause 1 of the sample
+contract does.
+
+A worked example, entirely outside the shipped rules:
+
+```json
+[
+  {
+    "id": "warranty_period",
+    "title": "Warranty period",
+    "text": "Vendor must warrant the services for at least 6 months.",
+    "rationale": "A short warranty shifts defect risk onto the customer.",
+    "rule_type": "numeric",
+    "default_severity": "serious",
+    "threshold": 6,
+    "unit": "months",
+    "comparison": "at_least",
+    "anchors": ["warrant", "warranty"]
+  }
+]
+```
+
+Against "Vendor warrants the services for a period of 3 months", that produces a **verified**
+finding: 3 months against a 6-month minimum, decided by arithmetic with no model involved,
+exactly like a shipped rule.
+
+Each stored review keeps a snapshot of the rules it was judged against. Without that, editing a
+playbook would silently rewrite the meaning of every past review, which is unacceptable in an
+audit trail.
 
 ## Uploading a contract
 

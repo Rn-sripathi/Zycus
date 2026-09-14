@@ -177,3 +177,161 @@ VALID_RULE_IDS: tuple[str, ...] = tuple(RULES_BY_ID)
 
 def get_rule(rule_id: str) -> Rule | None:
     return RULES_BY_ID.get(rule_id)
+
+
+# ---------------------------------------------------------------------------
+# Loading a different playbook
+# ---------------------------------------------------------------------------
+# Rules arrive as structured data, not prose. That is deliberate: a rule typed as
+# a sentence can only ever be judged by the model, whereas a rule that states its
+# threshold, unit and anchor phrases can be settled by arithmetic. Free-text
+# rules would quietly move most findings off the verified tier.
+#
+# Validation is hand-written rather than delegated to pydantic so that this module
+# stays dependency-free, and so the messages name the offending rule.
+# ---------------------------------------------------------------------------
+
+
+class PlaybookError(ValueError):
+    """A supplied playbook could not be read. The message is for the user."""
+
+
+_REQUIRED = ("id", "title", "text", "rule_type", "default_severity")
+_ID_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789_")
+
+
+def rules_from_json(data: object) -> tuple[Rule, ...]:
+    """Parse a playbook supplied as JSON into domain rules.
+
+    Accepts either a bare list of rules or ``{"rules": [...]}``.
+    """
+    if isinstance(data, dict):
+        data = data.get("rules", data.get("playbook"))
+
+    if not isinstance(data, list) or not data:
+        raise PlaybookError(
+            'Expected a list of rules, or an object with a "rules" list containing '
+            "at least one rule."
+        )
+
+    if len(data) > 40:
+        raise PlaybookError("A playbook is limited to 40 rules.")
+
+    rules = [_rule_from_json(index, entry) for index, entry in enumerate(data)]
+
+    seen: set[str] = set()
+    for rule in rules:
+        if rule.id in seen:
+            raise PlaybookError(f'Two rules share the id "{rule.id}". Ids must be unique.')
+        seen.add(rule.id)
+
+    return tuple(rules)
+
+
+def rules_to_json(rules: tuple[Rule, ...] = PLAYBOOK) -> list[dict]:
+    """Serialise rules back to JSON, so the shipped playbook is a starting point."""
+    output = []
+
+    for rule in rules:
+        entry: dict = {
+            "id": rule.id,
+            "title": rule.title,
+            "text": rule.text,
+            "rationale": rule.rationale,
+            "rule_type": rule.rule_type.value,
+            "default_severity": rule.default_severity.value,
+        }
+        if rule.rule_type is RuleType.NUMERIC:
+            entry["threshold"] = rule.threshold
+            entry["unit"] = rule.unit.value if rule.unit else None
+            entry["comparison"] = rule.comparison.value if rule.comparison else None
+            entry["anchors"] = list(rule.anchors)
+        if rule.keywords:
+            entry["keywords"] = list(rule.keywords)
+        if rule.redline_guidance:
+            entry["redline_guidance"] = rule.redline_guidance
+        output.append(entry)
+
+    return output
+
+
+def _rule_from_json(index: int, entry: object) -> Rule:
+    where = f"Rule {index + 1}"
+
+    if not isinstance(entry, dict):
+        raise PlaybookError(f"{where} is not an object.")
+
+    for field in _REQUIRED:
+        if not str(entry.get(field, "")).strip():
+            raise PlaybookError(f'{where} is missing "{field}".')
+
+    rule_id = str(entry["id"]).strip().lower()
+    if not set(rule_id) <= _ID_CHARS:
+        raise PlaybookError(
+            f'{where} has id "{rule_id}". Use lowercase letters, digits and underscores.'
+        )
+
+    where = f'Rule "{rule_id}"'
+    rule_type = _enum(RuleType, entry["rule_type"], where, "rule_type")
+    severity = _enum(Severity, entry["default_severity"], where, "default_severity")
+
+    threshold = unit = comparison = None
+    anchors: tuple[str, ...] = ()
+
+    if rule_type is RuleType.NUMERIC:
+        threshold = _number(entry.get("threshold"), where)
+        unit = _enum(Unit, entry.get("unit"), where, "unit")
+        comparison = _enum(
+            Comparison, entry.get("comparison", "at_least"), where, "comparison"
+        )
+        anchors = _strings(entry.get("anchors"), where, "anchors")
+
+        if not anchors:
+            raise PlaybookError(
+                f"{where} is numeric but lists no anchors. Anchors are the phrases that "
+                "tie a number to this rule, which is what lets a clause containing "
+                "several numbers be read correctly."
+            )
+
+    return Rule(
+        id=rule_id,
+        title=str(entry["title"]).strip(),
+        text=str(entry["text"]).strip(),
+        rationale=str(entry.get("rationale", "")).strip(),
+        rule_type=rule_type,
+        default_severity=severity,
+        threshold=threshold,
+        unit=unit,
+        comparison=comparison,
+        anchors=anchors,
+        keywords=_strings(entry.get("keywords"), where, "keywords"),
+        redline_guidance=str(entry.get("redline_guidance", "")).strip(),
+    )
+
+
+def _enum(enum_cls, value, where: str, field: str):
+    allowed = [member.value for member in enum_cls]
+    try:
+        return enum_cls(str(value).strip().lower())
+    except ValueError:
+        raise PlaybookError(
+            f'{where} has {field} "{value}". Allowed: {", ".join(allowed)}.'
+        ) from None
+
+
+def _number(value, where: str) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise PlaybookError(f"{where} is numeric, so it needs a numeric threshold.") from None
+    if number <= 0:
+        raise PlaybookError(f"{where} has a threshold of {number}. It must be positive.")
+    return number
+
+
+def _strings(value, where: str, field: str) -> tuple[str, ...]:
+    if value in (None, ""):
+        return ()
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise PlaybookError(f"{where} has a {field} value that is not a list of strings.")
+    return tuple(item.strip().lower() for item in value if item.strip())

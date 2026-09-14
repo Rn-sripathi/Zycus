@@ -8,6 +8,7 @@ import {
   listReviews,
   reviewContract,
   uploadContract,
+  validatePlaybook,
 } from './api/client.js'
 import ContractInput from './components/ContractInput.jsx'
 import FindingCard from './components/FindingCard.jsx'
@@ -80,6 +81,8 @@ export default function App() {
     () => document.documentElement.dataset.theme || 'light',
   )
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [customPlaybook, setCustomPlaybook] = useState(null)
+  const [defaultRules, setDefaultRules] = useState([])
 
   useEffect(() => {
     getSamples()
@@ -89,7 +92,12 @@ export default function App() {
       })
       .catch((err) => setError(err.message))
 
-    getPlaybook().then(setRules).catch(() => {})
+    getPlaybook()
+      .then((data) => {
+        setRules(data)
+        setDefaultRules(data)
+      })
+      .catch(() => {})
     getHealth().then(setHealth).catch(() => {})
     refreshHistory()
   }, [])
@@ -128,7 +136,7 @@ export default function App() {
     setResult(null)
 
     try {
-      const data = await reviewContract(contractText, label)
+      const data = await reviewContract(contractText, label, customPlaybook)
       show(data, data.review_id ?? null)
       if (data.review_id) refreshHistory()
     } catch (err) {
@@ -172,6 +180,22 @@ export default function App() {
     }
   }
 
+  async function handleApplyPlaybook(playbook) {
+    setCustomPlaybook(playbook)
+    try {
+      // Show the rail the rules that will actually be used.
+      const result = await validatePlaybook(playbook)
+      if (result.valid) setRules(result.rules)
+    } catch {
+      // Validation already succeeded server-side to get here.
+    }
+  }
+
+  function handleResetPlaybook() {
+    setCustomPlaybook(null)
+    setRules(defaultRules)
+  }
+
   async function handleDeleteReview(id) {
     try {
       await deleteReview(id)
@@ -199,6 +223,9 @@ export default function App() {
       <Sidebar
         open={sidebarOpen}
         rules={rules}
+        customPlaybook={customPlaybook}
+        onApplyPlaybook={handleApplyPlaybook}
+        onResetPlaybook={handleResetPlaybook}
         reviews={history}
         activeId={activeId}
         onOpenReview={handleOpenReview}

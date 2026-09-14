@@ -39,15 +39,22 @@ class FakeLLMClient:
         self.confidence = confidence
         self.violation = violation
         self.calls: list[str] = []
+        # Overridable so a test can drive a different playbook.
+        self.matches: dict[int, list[str]] = dict(MATCHES)
+        # Records the schema each call was constrained by, which is how the
+        # rule-id enum is asserted on.
+        self.schemas: dict[str, dict] = {}
 
-    async def complete_json(self, *, schema_name: str, **kwargs):
+    async def complete_json(self, *, schema_name: str, schema: dict | None = None, **kwargs):
         self.calls.append(schema_name)
+        if schema is not None:
+            self.schemas[schema_name] = schema
 
         if schema_name == "rule_matches":
             return {
                 "matches": [
                     {"clause_number": number, "rule_ids": rule_ids}
-                    for number, rule_ids in MATCHES.items()
+                    for number, rule_ids in self.matches.items()
                 ]
             }
 
